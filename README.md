@@ -2,18 +2,33 @@
 
 Userscript para **WhatsApp Web**: copiar y exportar rangos de mensajes y sus adjuntos, excluir mensajes concretos y copiar imágenes por separado mediante una cola manual de portapapeles.
 
-**Versión: 1.4.2.** El código de esta publicación es idéntico al archivo v1.4.2 entregado originalmente. No se ha cambiado el funcionamiento ni añadido actualización automática.
+**Versión: 1.4.3.** Incluye actualización automática gestionada por Tampermonkey/Violentmonkey desde el archivo estable de `main`. Se conserva el funcionamiento del exportador de 1.4.2.
 
 ## Instalación y actualización
 
-[Descargas de v1.4.2](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/tag/v1.4.2)
+**[Instalar / actualizar el userscript](https://github.com/alexx-ftw/whatsapp-range-exporter/raw/refs/heads/main/WhatsApp-Range-Exporter.user.js)**
 
-1. Descarga el ZIP de la versión y extrae `WhatsApp-Range-Exporter.user.js`, o utiliza la copia `.txt`.
-2. En Tampermonkey o Violentmonkey, abre el userscript existente y sustituye todo su contenido por el código de esta versión. Para una instalación nueva, crea un userscript y pega el código.
-3. Guarda y recarga WhatsApp Web.
-4. Abre el panel mediante el botón de exportación o `Alt + Shift + E`.
+[ZIP v1.4.3](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.4.3/WhatsApp-Range-Exporter-v1.4.3.zip) · [TXT v1.4.3](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.4.3/WhatsApp-Range-Exporter-v1.4.3.txt) · [Release](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/tag/v1.4.3)
 
-El repositorio es privado: necesitas iniciar sesión en una cuenta con acceso para ver sus archivos y descargas. El ZIP y el TXT permiten instalar sin depender de enlaces de descarga de ChatGPT.
+1. Con Tampermonkey o Violentmonkey instalado, abre el enlace de instalación y confirma la instalación o actualización en el gestor.
+2. Alternativa: descarga el ZIP y usa `WhatsApp-Range-Exporter.user.js`, o copia el TXT entero en el userscript existente, sustituyendo el código anterior.
+3. Guarda y recarga WhatsApp Web. Abre el panel mediante el botón de exportación o `Alt + Shift + E`.
+
+**Instala 1.4.3 una vez para incorporar los metadatos de auto-update** si todavía tienes una versión anterior. Mantén activadas las actualizaciones del script en el gestor; el intervalo lo decide su configuración. No se exige cuenta de GitHub ni se utilizan tokens.
+
+### Canal de actualización
+
+`@updateURL` y `@downloadURL` apuntan al mismo archivo estable de `main`:
+
+```text
+https://github.com/alexx-ftw/whatsapp-range-exporter/raw/refs/heads/main/WhatsApp-Range-Exporter.user.js
+```
+
+Las próximas versiones deben publicar el archivo de `main` y aumentar tanto `@version` como la constante `VERSION`. Publicar solo un ZIP o un tag no actualiza este canal. El gestor se encarga de comprobar, descargar e instalar; no hay un actualizador propio dentro de la página de WhatsApp.
+
+Se conservan `@name` y `@namespace` para mantener la identidad del script. La publicación mantiene los permisos y dependencias anteriores. No se ha probado una actualización automática real en el navegador del usuario.
+
+[Notas de 1.4.3](docs/README-v1.4.3.txt) · [Metadatos de Tampermonkey](https://www.tampermonkey.net/documentation.php#meta:updateURL) · [Metadatos de Violentmonkey](https://violentmonkey.github.io/api/metadata-block/)
 
 ## Uso
 

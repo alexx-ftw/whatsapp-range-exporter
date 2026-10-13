@@ -1,4 +1,6 @@
-ff3ec96fa4890a73c5d4a14faece69b4b0df82405ccba53ee3923759c0117c15  WhatsApp-Range-Exporter.user.js
+a2e004acf60a32d62d584ad4076eaecf4db99810ddd9f1e01401693adb35e4fa  WhatsApp-Range-Exporter.user.js
+a2e004acf60a32d62d584ad4076eaecf4db99810ddd9f1e01401693adb35e4fa  WhatsApp-Range-Exporter-v1.4.3.txt
 ff3ec96fa4890a73c5d4a14faece69b4b0df82405ccba53ee3923759c0117c15  WhatsApp-Range-Exporter-v1.4.2.txt
-cbdf1206ce1cff7390f5fd7044fb3a259a442804ce41e9e0bf4521da3dc607b8  README.md
+56da03be842eb0399f3e15772e409c9eae17149edc3d4f3a07dcc5e97a4b2a4a  README.md
 89331476910c6cd2104b3a821c45baf01fece7516653d7185b785f5c4978cf01  docs/README-v1.4.2.txt
+00ff335cc3aaf894374e0babd40fc754980ec679f272e25e9d947a19892237ae  docs/README-v1.4.3.txt

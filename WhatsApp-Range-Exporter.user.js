@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name         WhatsApp Web - Copiar y exportar rango de mensajes
 // @namespace    eros.local.whatsapp
-// @version      1.4.2
+// @version      1.4.3
 // @description  Exporta rangos y adjuntos con exclusiones y controles por botones. Copia imágenes separadas en una cola manual, solo mediante el portapapeles.
 // @author       Eros
 // @match        https://web.whatsapp.com/*
 // @require      https://github.com/wppconnect-team/wa-js/releases/download/v4.6.0/wppconnect-wa.js
 // @require      https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js
+// @updateURL    https://github.com/alexx-ftw/whatsapp-range-exporter/raw/refs/heads/main/WhatsApp-Range-Exporter.user.js
+// @downloadURL  https://github.com/alexx-ftw/whatsapp-range-exporter/raw/refs/heads/main/WhatsApp-Range-Exporter.user.js
 // @run-at       document-idle
 // @grant        none
 // ==/UserScript==
@@ -36,7 +38,7 @@
 }(function createWhatsAppRangeExporter() {
   'use strict';
 
-  const VERSION = '1.4.2';
+  const VERSION = '1.4.3';
   const HOST_ID = 'wa-range-exporter-host';
   const GLOBAL_STYLE_ID = 'wa-range-exporter-page-style';
   const MESSAGE_SELECTOR = '[data-testid^="conv-msg-"], [data-testid="image-album"]';
