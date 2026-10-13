@@ -2,13 +2,13 @@
 
 Userscript para **WhatsApp Web**: copiar y exportar rangos de mensajes y sus adjuntos, excluir mensajes concretos y copiar imágenes por separado mediante una cola manual de portapapeles.
 
-**Versión: 1.4.3.** Incluye actualización automática gestionada por Tampermonkey/Violentmonkey desde el archivo estable de `main`. Se conserva el funcionamiento del exportador de 1.4.2.
+**Versión: 1.5.0.** Interfaz renovada con versión instalada visible, acciones fijas, temas claro/oscuro y estados de resultados. Mantiene el auto-update y el motor de exportación anterior.
 
 ## Instalación y actualización
 
 **[Instalar / actualizar el userscript](https://github.com/alexx-ftw/whatsapp-range-exporter/raw/refs/heads/main/WhatsApp-Range-Exporter.user.js)**
 
-[ZIP v1.4.3](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.4.3/WhatsApp-Range-Exporter-v1.4.3.zip) · [TXT v1.4.3](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.4.3/WhatsApp-Range-Exporter-v1.4.3.txt) · [Release](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/tag/v1.4.3)
+[ZIP v1.5.0](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.0/WhatsApp-Range-Exporter-v1.5.0.zip) · [TXT v1.5.0](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.0/WhatsApp-Range-Exporter-v1.5.0.txt) · [Release](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/tag/v1.5.0)
 
 1. Con Tampermonkey o Violentmonkey instalado, abre el enlace de instalación y confirma la instalación o actualización en el gestor.
 2. Alternativa: descarga el ZIP y usa `WhatsApp-Range-Exporter.user.js`, o copia el TXT entero en el userscript existente, sustituyendo el código anterior.
@@ -29,6 +29,29 @@ Las próximas versiones deben publicar el archivo de `main` y aumentar tanto `@v
 Se conservan `@name` y `@namespace` para mantener la identidad del script. La publicación mantiene los permisos y dependencias anteriores. No se ha probado una actualización automática real en el navegador del usuario.
 
 [Notas de 1.4.3](docs/README-v1.4.3.txt) · [Metadatos de Tampermonkey](https://www.tampermonkey.net/documentation.php#meta:updateURL) · [Metadatos de Violentmonkey](https://violentmonkey.github.io/api/metadata-block/)
+
+## Interfaz 1.5.0
+
+- **Versión instalada visible** en la cabecera y el lanzador. Recarga WhatsApp Web tras actualizar para ejecutar la nueva versión.
+- **Acciones y estado siempre accesibles**, con un cuerpo de opciones desplazable independiente.
+- Resumen del chat, límites Desde/Hasta y contadores de mensajes, archivos recuperados y no disponibles.
+- **Sistema / Claro / Oscuro** mediante botones; se conserva la preferencia.
+- Resultados parciales y avisos claramente diferenciados. No se inventan porcentajes cuando el total es desconocido.
+- Cola de imágenes al principio, vista previa ampliada, copia separada y reintento sin avanzar.
+- Foco de teclado, cierre con Esc y controles adaptados a ventanas estrechas.
+
+No se modifica el motor de recopilación, fechas, formatos, archivos, ZIP ni portapapeles. Se mantienen los límites incluidos, las exclusiones y Hasta = Último mensaje disponible. [Detalles y alcance de las pruebas](docs/README-v1.5.0.txt).
+
+### Pruebas
+
+Con Node.js 22 o superior, sin instalar dependencias:
+
+```sh
+npm test
+npm run check
+```
+
+20 pruebas Node y 63 comprobaciones locales de interfaz en Chromium. WA-JS, almacenamiento y portapapeles simulados; decodificación PNG real. No se ha validado el pegado nativo en ChatGPT Desktop/Codex ni la sesión real de WhatsApp. Las pruebas de navegador se detallan en las notas de la versión.
 
 ## Uso
 

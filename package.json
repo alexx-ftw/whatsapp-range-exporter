@@ -1,0 +1,11 @@
+{
+  "name": "whatsapp-range-exporter",
+  "version": "1.5.0",
+  "private": true,
+  "description": "WhatsApp Range Exporter userscript and UI regression tests",
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "check": "node --check WhatsApp-Range-Exporter.user.js"
+  },
+  "engines": { "node": ">=22" }
+}

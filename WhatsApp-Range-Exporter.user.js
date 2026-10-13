@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Web - Copiar y exportar rango de mensajes
 // @namespace    eros.local.whatsapp
-// @version      1.4.3
+// @version      1.5.0
 // @description  Exporta rangos y adjuntos con exclusiones y controles por botones. Copia imágenes separadas en una cola manual, solo mediante el portapapeles.
 // @author       Eros
 // @match        https://web.whatsapp.com/*
@@ -38,7 +38,7 @@
 }(function createWhatsAppRangeExporter() {
   'use strict';
 
-  const VERSION = '1.4.3';
+  const VERSION = '1.5.0';
   const HOST_ID = 'wa-range-exporter-host';
   const GLOBAL_STYLE_ID = 'wa-range-exporter-page-style';
   const MESSAGE_SELECTOR = '[data-testid^="conv-msg-"], [data-testid="image-album"]';
@@ -3577,17 +3577,56 @@
     }
   }
 
+  /** Presentation only: never change records, dates or download decisions. */
+  function buildPanelSummary(result, collection, imageReport, imageCount = 0) {
+    const records = result ? exportRecords(result) : [];
+    const output = { messages: result ? records.length : null,
+      excluded: result ? result.records.length - records.length : 0,
+      expected: result ? expectedMediaCount(records) : null,
+      recovered: null, failed: null, scope: 'media', bytes: 0,
+      partial: Boolean(result && result.partial), warnings: [] };
+    if (result) output.warnings.push(...(result.scanWarnings || []), ...(result.metadataWarnings || []));
+    if (imageReport) {
+      output.scope = 'images';
+      output.recovered = imageCount;
+      output.failed = Number(imageReport.missingCount || 0) + (imageReport.failures || []).length;
+      output.expected = Math.max(Number(imageReport.expectedCount || 0), output.recovered + output.failed);
+      output.bytes = Number(imageReport.totalBytes || 0);
+      output.warnings.push(...(imageReport.warnings || []));
+    } else if (collection) {
+      const included = exportMediaCollection(result, collection);
+      output.recovered = (included.files || []).length;
+      output.failed = (included.failures || []).length;
+      output.expected = Math.max(output.expected || 0, Number(included.foundCount || 0), output.recovered + output.failed);
+      output.failed += Math.max(0, output.expected - output.recovered - output.failed);
+      output.bytes = Number(included.totalBytes || 0);
+      output.warnings.push(...(included.warnings || []));
+    }
+    output.partial = output.partial || output.failed > 0;
+    output.warnings = [...new Set(output.warnings.filter(Boolean))];
+    return output;
+  }
+
+  function panelProgress(progress = {}) {
+    const total = Number(progress.total) || 0;
+    const completed = Math.max(0, Number(progress.completed) || 0);
+    const percent = Number.isFinite(progress.percent) ? clamp(progress.percent, 0, 100)
+      : total > 0 ? clamp(completed / total * 100, 0, 100) : null;
+    return { percent, total, completed, count: Number.isFinite(progress.count) ? progress.count : null };
+  }
+
   function loadSettings() {
     try {
       const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
       return {
         format: ['txt', 'csv', 'json', 'html'].includes(parsed.format) ? parsed.format : 'txt',
+        theme: ['auto', 'light', 'dark'].includes(parsed.theme) ? parsed.theme : 'auto',
         dateOrder: ['auto', 'DMY', 'MDY', 'YMD'].includes(parsed.dateOrder) ? parsed.dateOrder : 'auto',
         loadOlderFromPhone: Boolean(parsed.loadOlderFromPhone),
         mediaMode: ['none', 'separate', 'zip', 'zip-ultra'].includes(parsed.mediaMode) ? parsed.mediaMode : 'none',
       };
     } catch (_error) {
-      return { format: 'txt', dateOrder: 'auto', loadOlderFromPhone: false, mediaMode: 'none' };
+      return { format: 'txt', dateOrder: 'auto', loadOlderFromPhone: false, mediaMode: 'none', theme: 'auto' };
     }
   }
 
@@ -3690,79 +3729,106 @@
     render();
   }
 
+  /** Small shared SVGs; no remote assets or font downloads. */
+  function uiIcon(name) {
+    const paths = {
+      export: '<path d="M12 3v12m-4-4 4 4 4-4M5 15v5h14v-5"/>',
+      close: '<path d="m6 6 12 12M6 18 18 6"/>',
+    };
+    return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.export}</svg>`;
+  }
+
   function uiTemplate(settings) {
     return `
 <style>
-:host{all:initial;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#111b21;line-height:1.35}*{box-sizing:border-box}button,input{font:inherit}.toggle{position:fixed;right:18px;bottom:88px;width:52px;height:52px;border:0;border-radius:50%;background:#00a884;color:#fff;font-size:25px;box-shadow:0 6px 24px #0005;cursor:pointer;z-index:2147483647}.toggle:hover{background:#008f72}.panel{position:fixed;right:18px;bottom:150px;width:min(430px,calc(100vw - 24px));max-height:min(790px,calc(100vh - 170px));overflow:auto;background:#f7f9fa;border:1px solid #d8e0e3;border-radius:16px;box-shadow:0 14px 48px #0005;z-index:2147483647}.panel[hidden]{display:none}.head{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;padding:14px 16px;border-bottom:1px solid #e5e9eb;z-index:2}.head h2{font-size:16px;margin:0}.close{border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:#54656f}.body{padding:14px}.hint{font-size:12px;color:#54656f;margin:0 0 12px}.endpoint{background:#fff;border:1px solid #e2e7e9;border-radius:12px;padding:11px;margin-bottom:10px}.endpoint-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.endpoint-title strong{font-size:13px}.mode-area{margin-top:8px}.pick{width:100%;border:0;border-radius:8px;padding:9px 10px;background:#e7fce9;color:#006c52;font-weight:650;cursor:pointer}.pick:hover{background:#d5f8dc}.selection{display:block;margin-top:7px;font-size:11px;color:#54656f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.date-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:7px}.date-grid input{width:100%;min-width:0;border:1px solid #cbd5d9;border-radius:8px;padding:8px;background:#fff}.options{display:grid;gap:9px;background:#fff;border:1px solid #e2e7e9;border-radius:12px;padding:11px;margin-bottom:10px}.option-row{display:grid;min-width:0;gap:7px;font-size:12px}.option-label{font-weight:650}.checkbox{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:#3b4a54}.checkbox input{margin-top:2px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.primary{grid-column:1/-1;border:0;border-radius:9px;padding:10px;background:#00a884;color:#fff;font-weight:700;cursor:pointer}.primary:hover{background:#008f72}.secondary,.danger{border:1px solid #cbd5d9;border-radius:9px;padding:9px;background:#fff;cursor:pointer}.secondary:disabled,.primary:disabled{opacity:.45;cursor:not-allowed}.danger{color:#c62828;border-color:#efb9b9}.status{margin-top:10px;padding:9px 10px;border-radius:9px;background:#e9edef;color:#3b4a54;font-size:12px;min-height:34px}.status.error{background:#ffe7e7;color:#8b1a1a}.status.success{background:#e4f8eb;color:#006c52}.status.warning{background:#fff2dd;color:#7d3616}.status.warning{background:#fff3d6;color:#704a00}.progress{height:4px;background:#dfe5e7;border-radius:999px;overflow:hidden;margin-top:7px}.progress>span{display:block;width:35%;height:100%;background:#00a884;border-radius:999px;animation:move 1.1s linear infinite}.progress[hidden]{display:none}@keyframes move{from{transform:translateX(-110%)}to{transform:translateX(330%)}}.privacy{font-size:10px;color:#667781;margin:10px 2px 0}.hidden{display:none!important}@media(max-width:500px){.panel{right:12px;bottom:140px;max-height:calc(100vh - 154px)}.toggle{right:12px;bottom:78px}}
-.exclusions{background:#fff;border:1px solid #e2e7e9;border-radius:12px;padding:11px;margin-bottom:10px}.exclusion-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:13px;margin-bottom:8px}.exclusion-actions{display:flex;gap:7px}.exclusion-actions button{flex:1}.excluded-list{max-height:130px;overflow:auto;margin-top:7px}.excluded-row{display:flex;align-items:center;gap:6px;border-top:1px solid #e9edef;padding:6px 0;font-size:11px}.excluded-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.excluded-row button{border:0;background:#fce9e9;color:#922b2b;border-radius:5px;padding:5px 7px;cursor:pointer}.exclusion-help{margin:7px 0 0;font-size:11px;color:#54656f}.pick-tray{position:fixed;right:18px;bottom:150px;width:min(430px,calc(100vw - 24px));padding:12px;background:#fff;border:2px solid #d13f45;border-radius:12px;box-shadow:0 6px 24px #0004;z-index:2147483647;font-size:12px}.pick-tray p{margin:0 0 8px}.pick-tray button{width:100%}button:disabled{opacity:.45;cursor:not-allowed}
-.clipboard-action{grid-column:1/-1;color:#006c52;font-weight:650}.image-clipboard{margin-top:12px;border:1px solid #94cdbb;border-radius:12px;background:#fff;padding:11px}.image-head{display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:8px}.image-preview{display:block;max-width:100%;max-height:160px;width:100%;height:160px;margin:8px auto;object-fit:contain;border-radius:6px}.image-name{font-size:11px;color:#54656f;overflow-wrap:anywhere;margin:8px 0}.image-note{font-size:11px;color:#54656f;margin:9px 0 0}.image-issues{font-size:11px;margin-top:8px;color:#8b391a}.image-issues pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:130px;overflow:auto;font:inherit}.image-count{white-space:normal;text-align:right;max-width:58%;overflow-wrap:anywhere}.image-clipboard button{min-width:0;font-size:12px}.image-clipboard img[hidden]{display:none}
-.choice-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:0}
-.choice-group.kind{grid-template-columns:repeat(3,minmax(0,1fr))}
-.choice-group.format-choices{grid-template-columns:repeat(4,minmax(0,1fr))}
-.choice{appearance:none;min-width:0;min-height:40px;padding:8px 7px;border:1px solid #cbd5d9;border-radius:8px;background:#fff;color:#3b4a54;font-size:12px;font-weight:600;line-height:1.3;text-align:center;white-space:normal;overflow-wrap:break-word;cursor:pointer;touch-action:manipulation}
-.choice:hover:not(:disabled){background:#f0f7f4;border-color:#8cb9aa}
-.choice[aria-checked="true"]{background:#dff5eb;border-color:#008867;color:#00583f;box-shadow:inset 0 0 0 1px #008867}
-.choice:focus-visible,.image-issues-toggle:focus-visible{outline:3px solid #1674aa;outline-offset:2px}
-.choice:disabled{opacity:.5;cursor:not-allowed}
-.image-issues-toggle{width:100%;min-height:36px;border:1px solid #dfb690;border-radius:7px;background:#fff7ee;color:#7d3616;padding:7px;text-align:left;cursor:pointer}
-.image-issues-toggle::before{content:'+';display:inline-block;width:16px;font-weight:700}
-.image-issues-toggle[aria-expanded="true"]::before{content:'−'}
-@media(max-width:380px){.choice-group.kind{grid-template-columns:repeat(2,minmax(0,1fr))}.choice-group.kind .choice:last-child{grid-column:1/-1}.choice-group.format-choices{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(prefers-reduced-motion:reduce){.progress>span{animation:none}}
+:host{all:initial;--bg:#f6f8f9;--surface:#ffffff;--text:#17272c;--muted:#55676f;--border:#dce4e7;--soft:#eaf0f2;--accent:#087f64;--accent-hover:#06674f;--accent-soft:#e4f4ee;--accent-text:#07563f;--danger:#a42b37;--danger-soft:#fff0f1;--warning:#795008;--warning-soft:#fff4dd;--focus:#236ea6;--shadow:0 16px 52px #0b202536;--radius:12px;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:13px;line-height:1.45;color:var(--text);color-scheme:light}
+:host([data-theme="dark"]){--bg:#101c22;--surface:#18262d;--text:#e7eff2;--muted:#abbcc4;--border:#33464f;--soft:#22353e;--accent:#55d9af;--accent-hover:#79e5c4;--accent-soft:#173e34;--accent-text:#9cf0d2;--danger:#ffb3bc;--danger-soft:#45252e;--warning:#ffda91;--warning-soft:#3c3220;--focus:#7bc4ff;--shadow:0 16px 56px #0008;color-scheme:dark}
+*{box-sizing:border-box}button,input{font:inherit}button{touch-action:manipulation}button:disabled{opacity:.48;cursor:not-allowed}button:focus-visible,input:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--focus);outline-offset:3px}button, a{-webkit-tap-highlight-color:transparent}
+[hidden],.hidden{display:none!important}
+.toggle{position:fixed;right:20px;bottom:88px;display:grid;place-items:center;width:52px;height:52px;padding:0;background:var(--accent);color:var(--surface);border:1px solid var(--accent-hover);border-radius:16px;box-shadow:var(--shadow);cursor:pointer;z-index:2147483647}
+.toggle:hover{background:var(--accent-hover)}:host([data-open="true"]) .toggle{display:none}
+.panel{position:fixed;right:16px;bottom:16px;width:min(480px,calc(100vw - 32px));height:min(900px,calc(100vh - 32px));height:min(900px,calc(100dvh - 32px));display:flex;flex-direction:column;overflow:hidden;isolation:isolate;background:var(--bg);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);z-index:2147483647}
+.head{flex:none;display:flex;align-items:center;gap:10px;padding:17px 18px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
+.brand{flex:1;min-width:0}.brand-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.head h2{font-size:18px;font-weight:700;letter-spacing:-.4px;line-height:1.2;margin:0}.brand-caption{font-size:11px;color:var(--muted);margin:4px 0 0}
+.version{font-variant-numeric:tabular-nums;font-size:11px;font-weight:650;color:var(--accent-text);background:var(--accent-soft);padding:3px 7px;border:1px solid var(--border);border-radius:6px;white-space:nowrap}
+.close{display:grid;place-items:center;flex:none;width:36px;height:36px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--muted);cursor:pointer}.close:hover{background:var(--soft);color:var(--text)}
+.body{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:16px 18px 22px;scroll-padding:12px}
+.context{padding:0 0 15px;border-bottom:1px solid var(--border);margin-bottom:18px}.chat-line{font-size:12px;color:var(--muted);margin-bottom:7px;display:flex;gap:6px}.chat-line strong{color:var(--text);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.range-summary{display:grid;gap:4px;margin:0;font-size:12px;line-height:1.45}.range-summary>div{display:grid;grid-template-columns:40px minmax(0,1fr);gap:8px}.range-summary dt{color:var(--muted)}.range-summary dd{margin:0;overflow-wrap:anywhere;color:var(--text)}
+.section-head{display:flex;gap:8px;align-items:baseline;justify-content:space-between;margin-bottom:12px}.section-head h3{margin:0;font-size:13px;font-weight:700;letter-spacing:.02em}.section-step{color:var(--accent);margin-right:6px;font-variant-numeric:tabular-nums}.section-meta{color:var(--muted);font-size:11px}
+.endpoint{margin:0 0 12px}.endpoint-title{margin-bottom:6px;font-size:12px}.endpoint-title strong{font-weight:650}.mode-area{margin-top:7px}.mode-area.hidden{display:none!important}.selection{display:block;color:var(--muted);font-size:12px;line-height:1.45;margin-top:7px;overflow-wrap:anywhere;white-space:pre-line;max-height:74px;overflow:auto}
+.choice-group{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;min-width:0}.choice-group.kind{grid-template-columns:repeat(3,minmax(0,1fr))}.choice-group.format-choices{grid-template-columns:repeat(4,minmax(0,1fr))}.choice-group.theme-choices{grid-template-columns:repeat(3,minmax(0,1fr))}
+.choice{appearance:none;min-width:0;min-height:39px;padding:8px 7px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--muted);font-size:12px;font-weight:550;line-height:1.35;text-align:center;white-space:normal;overflow-wrap:break-word;cursor:pointer;transition:border-color .12s}
+.choice:hover:not(:disabled){border-color:var(--accent);color:var(--text);background:var(--soft)}.choice[aria-checked="true"]{background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);font-weight:650}
+.pick{width:100%;min-height:38px;padding:8px 12px;border:1px dashed var(--accent);border-radius:8px;background:var(--accent-soft);color:var(--accent-text);cursor:pointer;font-size:12px;font-weight:600}.pick:hover:not(:disabled){border-style:solid}
+.date-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px}.date-grid label{min-width:0;display:grid;gap:4px;font-size:11px;color:var(--muted)}.date-grid input{width:100%;min-width:0;min-height:39px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px}
+.exclusions{margin:16px 0 22px;padding:12px 0 16px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}.exclusion-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:9px;font-size:12px}.exclusion-head strong{font-weight:650}.exclusion-head>span{color:var(--muted);font-size:11px}.exclusion-actions{display:flex;gap:7px}.exclusion-actions button:first-child{flex:1}.excluded-list{max-height:190px;overflow:auto;margin-top:7px}.excluded-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px}.excluded-row span{flex:1;min-width:0;overflow-wrap:anywhere}.excluded-row button{flex:none;min-height:34px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--accent-text);cursor:pointer;padding:6px 8px}
+.exclusion-help,.help,.hint{font-size:11px;color:var(--muted);margin:7px 0 0;line-height:1.55}.hint{margin:0 0 12px}.options{display:grid;gap:14px}.option-row{display:grid;gap:6px;min-width:0}.option-label{font-size:12px;font-weight:650}.checkbox{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--muted);line-height:1.5}.checkbox input{accent-color:var(--accent);width:16px;height:16px;margin:2px 0 0;flex:none}.appearance{margin-top:20px;border-top:1px solid var(--border);padding-top:14px}
+.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.actions button{min-width:0;overflow-wrap:anywhere}.primary,.secondary,.danger{appearance:none;min-height:40px;border-radius:9px;padding:9px 10px;font-size:12px;line-height:1.35;font-weight:600;cursor:pointer}.primary{border:1px solid var(--accent);background:var(--accent);color:var(--surface)}.primary:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover)}.secondary{border:1px solid var(--border);background:var(--surface);color:var(--text)}.secondary:hover:not(:disabled){background:var(--soft);border-color:var(--muted)}.danger{border:1px solid var(--danger);background:var(--danger-soft);color:var(--danger)}
+.action-bar{flex:none;border-top:1px solid var(--border);background:var(--surface);padding:12px 18px 14px;box-shadow:0 -5px 20px #0b202505}.action-bar .actions{grid-template-columns:repeat(2,minmax(0,1fr))}.action-bar .danger{grid-column:1/-1}.clipboard-action{color:var(--accent-text);border-color:var(--accent)}.action-help{font-size:11px;color:var(--muted);line-height:1.45;margin:7px 0 0;max-height:48px;overflow:auto}
+.status-line{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:6px}.state-label{font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px;color:var(--muted)}.state-label::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}.state-label[data-kind="success"]{color:var(--accent)}.state-label[data-kind="warning"]{color:var(--warning)}.state-label[data-kind="error"]{color:var(--danger)}.state-label[data-kind="busy"]{color:var(--accent)}.status-extra{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}.status{font-size:12px;color:var(--muted);line-height:1.45;margin:0 0 9px;max-height:64px;overflow:auto;overflow-wrap:anywhere}.status.error{color:var(--danger)}.status.warning{color:var(--warning)}.status.success{color:var(--accent-text)}
+.progress{height:4px;overflow:hidden;border-radius:4px;background:var(--soft);margin:0 0 10px}.progress>span{display:block;width:35%;height:100%;background:var(--accent);border-radius:4px;animation:move 1.2s linear infinite}.progress[data-determinate="true"]>span{animation:none;transform:none;transition:width .15s}@keyframes move{from{transform:translateX(-100%)}to{transform:translateX(320%)}}
+.result-summary{padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:18px}.result-heading{margin:0 0 9px;font-size:12px;font-weight:650}.result-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0;gap:10px}.result-stats>div{min-width:0;border-right:1px solid var(--border);padding-right:6px}.result-stats>div:last-child{border:0}.result-stats dt{font-size:11px;color:var(--muted)}.result-stats dd{font-size:22px;font-weight:650;line-height:1.4;margin:0;font-variant-numeric:tabular-nums;letter-spacing:-.6px}.result-media{font-size:11px;color:var(--muted);margin:8px 0 0}.result-warning{font-size:12px;color:var(--warning);background:var(--warning-soft);border:1px solid var(--border);border-left:3px solid var(--warning);border-radius:8px;padding:9px 10px;margin:9px 0 0;white-space:pre-line;overflow-wrap:anywhere;max-height:128px;overflow:auto}
+.image-clipboard{border:1px solid var(--accent);border-radius:var(--radius);padding:13px;background:var(--surface);margin-bottom:20px}.image-head{display:flex;flex-direction:column;gap:5px;margin-bottom:8px;font-size:13px}.image-count{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}.image-stage{border-radius:8px;background:var(--bg);border:1px solid var(--border);padding:8px;margin:10px 0}.image-preview{display:block;width:100%;height:220px;max-height:28vh;object-fit:contain;margin:0 auto}.image-name{font-size:11px;color:var(--muted);line-height:1.5;overflow-wrap:anywhere;margin:6px 0 10px}.image-clipboard .primary{grid-column:1/-1}.image-note{font-size:12px;color:var(--muted);line-height:1.5;margin:10px 0 0}.image-issues{color:var(--warning);margin-top:9px}.image-issues pre{font:inherit;font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;max-height:140px;overflow:auto;margin:8px 0 0}.image-issues-toggle{width:100%;text-align:left;padding:8px 9px;min-height:36px;border:1px solid var(--border);border-radius:7px;background:var(--warning-soft);color:var(--warning);cursor:pointer;font-size:12px}
+.image-issues-toggle::before{content:'+';display:inline-block;width:16px;font-weight:700}.image-issues-toggle[aria-expanded="true"]::before{content:'−'}
+.privacy{font-size:11px;line-height:1.5;color:var(--muted);margin:16px 0 0}.shortcut{font-family:ui-monospace,monospace;font-size:10px;color:var(--muted)}
+.pick-tray{position:fixed;right:16px;bottom:90px;width:min(440px,calc(100vw - 32px));padding:13px;background:var(--surface);color:var(--text);border:2px solid var(--danger);border-radius:12px;box-shadow:var(--shadow);z-index:2147483647;font-size:12px}.pick-tray p{margin:0 0 9px;line-height:1.5}.pick-tray button{width:100%}
+@media(max-width:520px){.panel{right:8px;bottom:8px;width:calc(100vw - 16px);height:calc(100vh - 16px);height:calc(100dvh - 16px);border-radius:14px}.head{padding:13px 14px}.head h2{font-size:17px}.body{padding:13px 13px 18px}.action-bar{padding:10px 14px 12px}.choice{padding:8px 5px}.action-help{max-height:48px}.image-preview{height:200px}.toggle{right:16px}.pick-tray{right:8px;width:calc(100vw - 16px)}}
+@media(max-width:340px){.choice-group.kind{grid-template-columns:repeat(2,minmax(0,1fr))}.choice-group.kind .choice:last-child{grid-column:1/-1}.head{gap:6px}.head h2{font-size:16px}.brand-caption{font-size:10px}.result-stats dd{font-size:19px}}
+@media(max-height:560px){.head{padding-top:9px;padding-bottom:9px}.brand-caption{display:none}.action-bar{padding-top:8px;padding-bottom:8px}.status{max-height:38px}.action-help{max-height:32px}.action-bar .actions button{min-height:34px;padding:6px 8px}.status-line{margin-bottom:3px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.progress:not([data-determinate="true"])>span{width:100%;opacity:.55}}
 </style>
-<button class="toggle" data-role="toggle" title="Exportar rango de mensajes" aria-label="Exportar rango de mensajes">⇩</button>
-<section class="panel" data-role="panel" hidden>
-  <header class="head"><h2>Exportar rango de mensajes</h2><button class="close" data-role="close" aria-label="Cerrar">×</button></header>
-  <div class="body">
-    <p class="hint">Cada límite puede ser un mensaje elegido, una fecha y hora, o el principio/final disponible.</p>
+<button type="button" class="toggle" data-role="toggle" title="Exportar chat · v${VERSION} · Alt+Shift+E" aria-label="Abrir exportador de WhatsApp, versión ${VERSION}" aria-expanded="false" aria-controls="wa-range-exporter-panel">${uiIcon('export')}</button>
+<section id="wa-range-exporter-panel" class="panel" data-role="panel" role="dialog" aria-modal="false" aria-labelledby="wa-export-title" hidden>
+  <header class="head">
+    <div class="brand"><div class="brand-line"><h2 id="wa-export-title">Exportar chat</h2><span class="version" data-role="version" title="Versión instalada en esta pestaña">v${VERSION}</span></div><p class="brand-caption">WhatsApp Range Exporter</p></div>
+    <button type="button" class="close" data-role="close" aria-label="Cerrar panel" title="Cerrar · Esc">${uiIcon('close')}</button>
+  </header>
+  <div class="body" data-role="panel-body">
+    <section class="context" aria-label="Resumen del rango">
+      <div class="chat-line"><span>Chat</span><strong data-role="chat-title">Abre una conversación</strong></div>
+      <dl class="range-summary" data-role="range-summary"><div><dt>Desde</dt><dd data-role="summary-start">Elige un mensaje</dd></div><div><dt>Hasta</dt><dd data-role="summary-end">Último mensaje disponible</dd></div></dl>
+    </section>
+    <section class="result-summary" data-role="result-summary" aria-label="Resultado de la recopilación" hidden>
+      <p class="result-heading" data-role="result-heading">Rango recopilado</p>
+      <dl class="result-stats"><div><dt>Mensajes</dt><dd data-role="stat-messages">—</dd></div><div><dt>Recuperados</dt><dd data-role="stat-recovered">—</dd></div><div><dt>No disponibles</dt><dd data-role="stat-failed">—</dd></div></dl>
+      <p class="result-media" data-role="result-media"></p><p class="result-warning" data-role="result-warning" hidden></p>
+    </section>
+    <section class="image-clipboard hidden" data-role="image-queue" aria-label="Cola de imágenes al portapapeles">
+      <div class="image-head"><strong>Imágenes al portapapeles</strong><span class="image-count" data-role="image-count" aria-live="polite"></span></div>
+      <div class="image-stage"><img class="image-preview" data-role="image-preview" alt="Vista previa de la próxima imagen de la cola" hidden></div>
+      <p class="image-name" data-role="image-name"></p>
+      <div class="actions"><button type="button" class="primary" data-role="image-next" disabled>Copiar 1 de N</button><button type="button" class="secondary" data-role="image-again" disabled>Volver a copiar</button><button type="button" class="secondary" data-role="image-close">Cerrar cola</button></div>
+      <p class="image-note" data-role="image-note"></p>
+      <section class="image-issues" data-role="image-issues" hidden><button type="button" class="image-issues-toggle" data-role="image-issues-toggle" aria-expanded="false" aria-controls="wa-range-exporter-image-issues-text">Mostrar avisos de imágenes</button><pre id="wa-range-exporter-image-issues-text" data-role="image-issues-text" hidden></pre></section>
+    </section>
+    <div class="section-head"><h3><span class="section-step">01</span> Rango de mensajes</h3><span class="section-meta">Límites incluidos</span></div>
     ${endpointTemplate('start', 'Desde', 'message')}
     ${endpointTemplate('end', 'Hasta', 'none')}
     <section class="exclusions">
       <div class="exclusion-head"><strong>Excluir mensajes</strong><span data-role="excluded-count" aria-live="polite">0 seleccionados</span></div>
-      <div class="exclusion-actions"><button class="secondary" data-role="pick-exclude">Seleccionar mensajes</button><button class="secondary" data-role="clear-exclusions" disabled>Restablecer</button></div>
-      <div class="excluded-list" data-role="excluded-list"></div>
-      <p class="exclusion-help">Clic para excluir o reincluir. No borra nada del chat. Un álbum seleccionado excluye todas sus fotos.</p>
+      <div class="exclusion-actions"><button type="button" class="secondary" data-role="pick-exclude">Seleccionar en el chat</button><button type="button" class="secondary" data-role="clear-exclusions" disabled>Reincluir todos</button></div>
+      <div class="excluded-list" data-role="excluded-list"></div><p class="exclusion-help">Un clic excluye; otro reincluye. No se borra nada de WhatsApp.</p>
     </section>
+    <div class="section-head"><h3><span class="section-step">02</span> Opciones de salida</h3></div>
     <section class="options">
-      <div class="option-row"><span class="option-label">Formato</span>
-        ${choiceGroupTemplate('format', 'Formato', [['txt', 'TXT legible'], ['csv', 'CSV'], ['json', 'JSON'], ['html', 'HTML visual']], settings.format, 'format-choices')}
-      </div>
-      <div class="option-row"><span class="option-label">Orden de fecha</span>
-        ${choiceGroupTemplate('date-order', 'Orden de fecha', [['auto', 'Automático'], ['DMY', 'Día / mes / año'], ['MDY', 'Mes / día / año'], ['YMD', 'Año / mes / día']], settings.dateOrder)}
-      </div>
-      <div class="option-row"><span class="option-label">Incluir adjuntos</span>
-        ${choiceGroupTemplate('media-mode', 'Incluir adjuntos', [['none', 'No, solo mensajes'], ['separate', 'Sí, separados'], ['zip', 'Sí, un ZIP'], ['zip-ultra', 'Sí, ZIP ultracomprimido']], settings.mediaMode)}
-      </div>
-      <label class="checkbox"><input type="checkbox" data-role="load-older"${settings.loadOlderFromPhone ? ' checked' : ''}><span>Intentar pulsar “cargar mensajes antiguos desde el teléfono” al llegar arriba</span></label>
+      <div class="option-row"><span class="option-label">Formato de conversación</span>${choiceGroupTemplate('format', 'Formato de conversación', [['txt','TXT'],['csv','CSV'],['json','JSON'],['html','HTML']],settings.format,'format-choices')}</div>
+      <div class="option-row"><span class="option-label">Adjuntos y compresión</span>${choiceGroupTemplate('media-mode', 'Adjuntos y compresión', [['none','Solo mensajes'],['separate','Archivos separados'],['zip','ZIP normal'],['zip-ultra','ZIP máximo']],settings.mediaMode)}<p class="help" data-role="media-help">Sin descargar fotos, vídeos ni documentos.</p></div>
+      <div class="option-row"><span class="option-label">Interpretar fechas</span>${choiceGroupTemplate('date-order','Orden de fecha',[['auto','Automático'],['DMY','Día / mes / año'],['MDY','Mes / día / año'],['YMD','Año / mes / día']],settings.dateOrder)}</div>
+      <label class="checkbox"><input type="checkbox" data-role="load-older"${settings.loadOlderFromPhone ? ' checked' : ''}><span>Intentar cargar mensajes antiguos desde el teléfono</span></label>
     </section>
-    <div class="actions">
-      <button class="primary" data-role="scan">Recopilar rango</button>
-      <button class="secondary" data-role="copy" disabled>Copiar</button>
-      <button class="secondary" data-role="download" disabled>Descargar</button>
-      <button class="secondary clipboard-action" data-role="copy-images" disabled title="Preparar las imágenes del rango para copiarlas una a una; no descarga archivos">Copiar imágenes</button>
-      <button class="danger hidden" data-role="cancel">Cancelar</button>
-    </div>
-    <section class="image-clipboard hidden" data-role="image-queue" aria-label="Cola de imágenes al portapapeles">
-      <div class="image-head"><strong>Imágenes al portapapeles</strong><span class="image-count" data-role="image-count" aria-live="polite"></span></div>
-      <img class="image-preview" data-role="image-preview" alt="Vista previa de la próxima imagen de la cola" hidden>
-      <p class="image-name" data-role="image-name"></p>
-      <div class="actions">
-        <button class="primary" data-role="image-next" disabled>Copiar 1 de N</button>
-        <button class="secondary" data-role="image-again" disabled>Volver a copiar</button>
-        <button class="secondary" data-role="image-close">Cerrar cola</button>
-      </div>
-      <p class="image-note" data-role="image-note"></p>
-      <section class="image-issues" data-role="image-issues" hidden>
-        <button type="button" class="image-issues-toggle" data-role="image-issues-toggle" aria-expanded="false" aria-controls="wa-range-exporter-image-issues-text">Mostrar avisos de imágenes</button>
-        <pre id="wa-range-exporter-image-issues-text" data-role="image-issues-text" hidden></pre>
-      </section>
-    </section>
-    <div class="status" data-role="status">Abre un chat y selecciona los dos límites</div>
-    <div class="progress" data-role="progress" hidden><span></span></div>
-    <p class="privacy">Todo se procesa dentro de tu navegador. Los adjuntos originales se solicitan a la sesión abierta de WhatsApp; cuando no están disponibles, se registra el fallo sin sustituirlos silenciosamente por una miniatura.</p>
+    <section class="appearance"><div class="option-row"><span class="option-label">Apariencia</span>${choiceGroupTemplate('theme','Apariencia',[['auto','Sistema'],['light','Claro'],['dark','Oscuro']],settings.theme || 'auto','theme-choices')}</div></section>
+    <p class="privacy">Procesado en tu navegador. Los originales se solicitan a tu sesión de WhatsApp; los archivos no recuperados se indican como no disponibles.</p>
   </div>
+  <footer class="action-bar" data-role="action-bar">
+    <div class="status-line"><span class="state-label" data-role="state-label">Sin recopilar</span><span class="status-extra" data-role="status-extra">Alt + Shift + E</span></div>
+    <div class="status" data-role="status" role="status" aria-live="polite" aria-atomic="true">Selecciona el inicio y pulsa Recopilar rango.</div>
+    <div class="progress" data-role="progress" role="progressbar" aria-label="Progreso de la operación" aria-valuemin="0" aria-valuemax="100" hidden><span></span></div>
+    <div class="actions"><button type="button" class="primary" data-role="scan">Recopilar rango</button><button type="button" class="secondary clipboard-action" data-role="copy-images" disabled>Copiar imágenes</button><button type="button" class="secondary" data-role="copy" disabled>Copiar</button><button type="button" class="secondary" data-role="download" disabled>Descargar</button><button type="button" class="danger hidden" data-role="cancel">Cancelar operación</button></div>
+    <p class="action-help" data-role="action-help">Primero recopila el rango para habilitar la copia y la descarga.</p>
+  </footer>
 </section>
-<div class="pick-tray hidden" data-role="exclusion-tray"><p data-role="exclusion-tray-label" aria-live="polite">Haz clic en los mensajes que quieras excluir</p><button class="secondary" data-role="finish-exclusions">Terminar selección</button></div>`;
+<div class="pick-tray hidden" data-role="exclusion-tray"><p data-role="exclusion-tray-label" aria-live="polite">Haz clic en los mensajes que quieras excluir</p><button type="button" class="secondary" data-role="finish-exclusions">Terminar selección</button></div>`;
   }
 
   function endpointTemplate(key, title, selectedKind) {
@@ -3778,7 +3844,7 @@
         <span class="selection" data-role="${key}-selection">Ningún mensaje elegido</span>
       </div>
       <div class="mode-area hidden" data-mode="date">
-        <div class="date-grid"><input type="date" data-role="${key}-date"><input type="time" data-role="${key}-time" step="60"></div>
+        <div class="date-grid"><label>Fecha<input type="date" data-role="${key}-date" aria-label="Fecha de ${key === 'start' ? 'inicio' : 'fin'}"></label><label>Hora<input type="time" data-role="${key}-time" step="60" aria-label="Hora de ${key === 'start' ? 'inicio' : 'fin'}"></label></div>
       </div>
     </section>`;
   }
@@ -3804,6 +3870,9 @@
     const refs = {};
     for (const role of [
       'toggle', 'panel', 'close', 'format', 'date-order', 'media-mode', 'load-older', 'scan', 'copy', 'download', 'cancel',
+      'theme', 'panel-body', 'action-bar', 'version', 'chat-title', 'range-summary', 'summary-start', 'summary-end',
+      'state-label', 'status-extra', 'action-help', 'media-help', 'result-summary', 'result-heading',
+      'stat-messages', 'stat-recovered', 'stat-failed', 'result-media', 'result-warning',
       'status', 'progress', 'start-kind', 'end-kind', 'pick-start', 'pick-end', 'start-selection', 'end-selection',
       'start-date', 'end-date', 'start-time', 'end-time',
       'pick-exclude', 'clear-exclusions', 'excluded-count', 'excluded-list',
@@ -3829,11 +3898,101 @@
       mediaCollection: null,
       abortController: null,
       scanning: false,
+      operation: '',
+      statusKind: '',
+      progressData: null,
     };
+
+    function applyTheme() {
+      const preference = refs.theme.value;
+      const dark = preference === 'dark' || (preference === 'auto' && typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches);
+      host.dataset.theme = dark ? 'dark' : 'light';
+    }
+
+    function renderDashboard() {
+      const title = getChatTitle();
+      refs['chat-title'].textContent = title || 'Abre una conversación';
+      refs['chat-title'].title = title || '';
+      for (const key of ['start', 'end']) {
+        const kind = refs[`${key}-kind`].value;
+        const selection = state.selections[key];
+        const label = kind === 'none' ? (key === 'start' ? 'Primer mensaje disponible' : 'Último mensaje disponible')
+          : kind === 'message' ? (selection ? selectionLabel(selection) : 'Elige un mensaje en el chat')
+          : refs[`${key}-date`].value ? `${refs[`${key}-date`].value} · ${refs[`${key}-time`].value || (key === 'start' ? 'Inicio del día' : 'Final del día')}` : 'Elige una fecha';
+        refs[`summary-${key}`].textContent = label;
+        refs[`summary-${key}`].title = label;
+      }
+      const summary = buildPanelSummary(state.result, state.mediaCollection, state.imageReport, state.imageQueue ? state.imageQueue.length : 0);
+      const progress = panelProgress(state.progressData || {});
+      const scanning = state.scanning && state.operation === 'scan';
+      refs['result-summary'].hidden = !state.result && !scanning;
+      refs['result-heading'].textContent = scanning ? 'Recopilando el rango' : summary.partial ? 'Resultado parcial' : 'Rango recopilado';
+      refs['stat-messages'].textContent = String(scanning && progress.count != null ? progress.count : summary.messages ?? '—');
+      refs['stat-recovered'].textContent = String(summary.recovered ?? '—');
+      refs['stat-failed'].textContent = String(summary.failed ?? '—');
+      const scope = summary.scope === 'images' ? 'Imágenes de la cola' : 'Adjuntos';
+      refs['result-media'].textContent = scanning ? 'El total se conocerá al terminar. Puedes cancelar la operación.'
+        : summary.recovered == null ? `${summary.expected || 0} adjuntos detectados${summary.expected ? ' · aún no preparados' : ''} · ${summary.excluded} mensajes excluidos del rango`
+        : `${scope}: ${summary.expected} · ${summary.bytes ? formatBytes(summary.bytes) + ' · ' : ''}${summary.excluded} mensajes excluidos del rango`;
+      const warnings = [...summary.warnings];
+      if (state.result && state.result.partial) warnings.unshift('No se ha confirmado todo el rango. La exportación es parcial.');
+      if (summary.failed) warnings.unshift(`${summary.failed} ${summary.scope === 'images' ? 'imágenes' : 'adjuntos'} no disponibles. El resultado no está completo.`);
+      refs['result-warning'].hidden = !warnings.length;
+      refs['result-warning'].textContent = [...new Set(warnings)].join('\n');
+      const warning = summary.partial || summary.warnings.length > 0 || state.statusKind === 'warning';
+      const kind = state.scanning ? 'busy' : state.statusKind === 'error' ? 'error' : warning ? 'warning'
+        : state.statusKind === 'success' ? 'success' : '';
+      const busyLabels = { scan: 'Recopilando', images: 'Preparando imágenes', copy: 'Copiando', download: 'Exportando', clipboard: 'Copiando imagen' };
+      refs['state-label'].textContent = state.scanning ? (busyLabels[state.operation] || 'Procesando')
+        : kind === 'error' ? 'Error' : summary.partial ? 'Parcial' : warning ? 'Revisar avisos'
+        : state.result ? (summary.recovered == null ? 'Rango listo' : 'Listo') : kind === 'success' ? 'Preparado' : 'Sin recopilar';
+      refs['state-label'].dataset.kind = kind;
+      refs['status-extra'].textContent = state.scanning ? (progress.percent == null ? 'En curso' : `${Math.round(progress.percent)}%`)
+        : state.result ? `${summary.messages} mensajes` : 'Alt + Shift + E';
+      const mode = refs['media-mode'].value;
+      const mediaHelp = {
+        none: 'Solo texto y referencias a adjuntos. Copiar imágenes funciona aparte.',
+        separate: 'Conversación y archivos por separado. El navegador puede pedir permiso para varias descargas.',
+        zip: 'Un ZIP con la conversación, los archivos y el manifiesto.',
+        'zip-ultra': 'ZIP con compresión máxima (nivel 9). Fotos y vídeos ya comprimidos suelen reducirse poco.',
+      };
+      refs['media-help'].textContent = mediaHelp[mode];
+      const empty = !state.result || !exportRecords(state.result).length;
+      const help = state.scanning ? 'Operación en curso. Cerrar el panel no la cancela.'
+        : empty ? (state.result ? 'No hay mensajes incluidos. Revisa el rango o reincluye mensajes.' : 'Primero recopila el rango para habilitar la copia y la descarga.')
+        : mode === 'none' ? 'Copiar imágenes: un PNG por clic, solo portapapeles y sin descargas.'
+        : 'Copiar puede descargar un ZIP con adjuntos. Copiar imágenes usa solo el portapapeles.';
+      refs['action-help'].textContent = help;
+      for (const role of ['copy','download','copy-images']) {
+        refs[role].title = empty ? 'Recopila primero un rango con mensajes incluidos'
+          : state.scanning ? 'Espera o cancela la operación actual'
+          : role === 'copy-images' ? 'Preparar imágenes individuales en memoria; no descarga archivos'
+          : role === 'copy' && mode !== 'none' ? 'Copia la conversación; si el portapapeles no admite los adjuntos, descarga un ZIP' : '';
+      }
+      refs.scan.textContent = scanning ? 'Recopilando…' : state.result ? 'Recopilar de nuevo' : 'Recopilar rango';
+      refs['copy-images'].textContent = state.scanning && state.operation === 'images' ? 'Preparando…' : 'Copiar imágenes';
+      refs['panel-body'].setAttribute('aria-busy', String(state.scanning));
+    }
+
+    function updateLiveProgress(progress) {
+      state.progressData = progress || {};
+      const info = panelProgress(state.progressData);
+      refs.progress.dataset.determinate = String(info.percent != null);
+      refs.progress.firstElementChild.style.width = info.percent == null ? '35%' : `${info.percent}%`;
+      if (info.percent == null) refs.progress.removeAttribute('aria-valuenow');
+      else refs.progress.setAttribute('aria-valuenow', String(Math.round(info.percent)));
+      refs.progress.setAttribute('aria-valuetext', info.percent == null ? (progress.phase || 'En curso, total desconocido') : `${Math.round(info.percent)}%`);
+      renderDashboard();
+    }
 
     function setOpen(open) {
       state.open = Boolean(open);
       refs.panel.hidden = !state.open;
+      host.dataset.open = String(state.open);
+      refs.toggle.setAttribute('aria-expanded', String(state.open));
+      renderDashboard();
+      if (state.open) refs.close.focus({ preventScroll: true });
+      else if (!state.picking) refs.toggle.focus({ preventScroll: true });
     }
 
     function setStatus(message, kind = '') {
@@ -3841,12 +4000,23 @@
         kind = 'warning';
         message += ' AVISO: exportación parcial; no se confirmó todo el rango.';
       }
+      state.statusKind = kind;
       refs.status.textContent = message;
       refs.status.className = `status${kind ? ` ${kind}` : ''}`;
+      renderDashboard();
     }
 
-    function setBusy(busy) {
+    function setBusy(busy, operation = '') {
+      const starting = busy && !state.scanning;
       state.scanning = busy;
+      if (starting) {
+        state.progressData = null;
+        refs.progress.dataset.determinate = 'false';
+        refs.progress.firstElementChild.style.width = '35%';
+        refs.progress.removeAttribute('aria-valuenow');
+        refs.progress.setAttribute('aria-valuetext', 'En curso, total desconocido');
+      }
+      state.operation = busy ? (operation || state.operation || 'scan') : '';
       refs.scan.disabled = busy;
       const empty = !state.result || exportRecords(state.result).length === 0;
       refs.copy.disabled = busy || empty;
@@ -3862,6 +4032,7 @@
       refs['load-older'].disabled = busy;
       refs.cancel.classList.toggle('hidden', !busy);
       refs.progress.hidden = !busy;
+      renderDashboard();
     }
 
     function endpointContainer(key) {
@@ -4013,13 +4184,14 @@
       const controller = new AbortController();
       const isCurrent = () => state.result === result && currentChatKey() === chatKey;
       state.abortController = controller;
-      setBusy(true);
+      setBusy(true, 'images');
       setStatus('Preparando imágenes en memoria. El portapapeles todavía no cambia');
       try {
         const collection = await prepareImageClipboard(result, {
           signal: controller.signal, isCurrent,
           onProgress(progress) {
             if (controller.signal.aborted || !isCurrent()) return;
+            updateLiveProgress(progress);
             const total = Number(progress.total) || 0;
             setStatus(total
               ? `Preparando imágenes en memoria: ${progress.completed}/${total} · ${progress.failed || 0} no disponibles`
@@ -4042,8 +4214,8 @@
         setStatus(collection.files.length
           ? `${collection.files.length} imágenes preparadas (${formatBytes(collection.totalBytes)}).${missing ? ` ${missing} no disponibles.` : ''} Pulsa Copiar 1 de ${collection.files.length}`
           : `No hay imágenes listas.${missing ? ` ${missing} no disponibles; revisa los avisos de la cola.` : ' No se encontraron imágenes en el rango incluido.'}`,
-        missing ? '' : (collection.files.length ? 'success' : ''));
-        refs.status.scrollIntoView({ block: 'end' });
+        missing ? 'warning' : (collection.files.length ? 'success' : ''));
+        refs['image-queue'].scrollIntoView({ block: 'start' });
       } catch (error) {
         clearImageQueue();
         setStatus(error && error.name === 'AbortError' ? 'Preparación de imágenes cancelada'
@@ -4063,7 +4235,7 @@
       const controller = new AbortController();
       const isCurrent = () => state.imageQueue === queue && state.result === result && currentChatKey() === chatKey;
       state.abortController = controller;
-      setBusy(true);
+      setBusy(true, 'clipboard');
       try {
         // No fetch/decode before write: each ready PNG is written inside the button click.
         const copied = await (repeat ? queue.copyLast({ signal: controller.signal, isCurrent })
@@ -4214,9 +4386,12 @@
       document.addEventListener('keydown', onPickKeyDown, true);
       setStatus(`Haz clic en el mensaje de ${key === 'start' ? 'inicio' : 'fin'}. Pulsa Esc para cancelar`);
       setOpen(false);
+      refs['exclusion-tray'].classList.remove('hidden');
+      refs['finish-exclusions'].textContent = key === 'exclude' ? 'Terminar selección' : 'Volver al panel';
       if (key === 'exclude') {
-        refs['exclusion-tray'].classList.remove('hidden');
         refreshExclusions(); exclusionStatus();
+      } else {
+        refs['exclusion-tray-label'].textContent = `Haz clic en el mensaje de ${key === 'start' ? 'inicio' : 'fin'}. Esc vuelve al panel sin cambiar el límite.`;
       }
     }
 
@@ -4250,7 +4425,9 @@
         dateOrder: refs['date-order'].value,
         mediaMode: refs['media-mode'].value,
         loadOlderFromPhone: refs['load-older'].checked,
+        theme: refs.theme.value,
       });
+      renderDashboard();
     }
 
     function operationProgressLabel(progress) {
@@ -4283,6 +4460,7 @@
       const collection = await collectMediaFiles(resultReference, {
         signal,
         onProgress(progress) {
+          updateLiveProgress(progress);
           setStatus(operationProgressLabel(progress));
         },
       });
@@ -4312,7 +4490,7 @@
     function collectionCompletionKind(collection) {
       const hasFailures = Boolean(collection && collection.failures && collection.failures.length);
       const hasWarnings = Boolean(collection && collection.warnings && collection.warnings.length);
-      return hasFailures || hasWarnings ? '' : 'success';
+      return hasFailures || hasWarnings ? 'warning' : 'success';
     }
 
     async function runScan() {
@@ -4325,7 +4503,7 @@
         clearImageQueue();
         state.result = null;
         state.mediaCollection = null;
-        setBusy(true);
+        setBusy(true, 'scan');
         setStatus('Iniciando la recopilación');
         persistOptions();
         state.abortController = new AbortController();
@@ -4335,6 +4513,7 @@
           loadOlderFromPhone: refs['load-older'].checked,
           signal: state.abortController.signal,
           onProgress(progress) {
+            updateLiveProgress(progress);
             const oldest = progress.oldest ? formatLocalDateTime(progress.oldest) : 'sin fecha';
             const newest = progress.newest ? formatLocalDateTime(progress.newest) : 'sin fecha';
             setStatus(`${progress.phase}: ${progress.count} mensajes recopilados (${oldest} a ${newest})`);
@@ -4379,7 +4558,7 @@
         return;
       }
       try {
-        setBusy(true);
+        setBusy(true, 'copy');
         persistOptions();
         state.abortController = new AbortController();
         const signal = state.abortController.signal;
@@ -4415,6 +4594,7 @@
           mode: mediaMode === 'zip-ultra' ? 'zip-ultra' : 'zip',
           signal,
           onProgress(progress) {
+            updateLiveProgress(progress);
             setStatus(operationProgressLabel(progress));
           },
         });
@@ -4440,7 +4620,7 @@
         return;
       }
       try {
-        setBusy(true);
+        setBusy(true, 'download');
         persistOptions();
         state.abortController = new AbortController();
         const signal = state.abortController.signal;
@@ -4469,6 +4649,7 @@
           mode: mediaMode,
           signal,
           onProgress(progress) {
+            updateLiveProgress(progress);
             setStatus(operationProgressLabel(progress));
           },
         });
@@ -4496,7 +4677,7 @@
     refs['pick-start'].addEventListener('click', () => beginPicking('start'));
     refs['pick-end'].addEventListener('click', () => beginPicking('end'));
     refs['pick-exclude'].addEventListener('click', () => beginPicking('exclude'));
-    refs['finish-exclusions'].addEventListener('click', () => { finishPicking(); setOpen(true); exclusionStatus(); });
+    refs['finish-exclusions'].addEventListener('click', () => { const excluding = state.picking === 'exclude'; finishPicking(); setOpen(true); if (excluding) exclusionStatus(); });
     refs['clear-exclusions'].addEventListener('click', () => {
       if (state.scanning || syncChatContext()) return;
       state.exclusions.clear(); refreshExclusions(); exclusionStatus();
@@ -4523,11 +4704,18 @@
     refs['date-order'].addEventListener('change', () => { persistOptions(); invalidateRange(); });
     refs['media-mode'].addEventListener('change', persistOptions);
     refs['load-older'].addEventListener('change', persistOptions);
+    refs.theme.addEventListener('change', () => { applyTheme(); persistOptions(); });
+    const colorQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+    const onColorChange = () => { if (host.isConnected) applyTheme(); };
+    if (colorQuery && colorQuery.addEventListener) colorQuery.addEventListener('change', onColorChange);
+    shadow.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !state.picking && state.open) { event.preventDefault(); event.stopPropagation(); setOpen(false); }
+    });
 
     document.addEventListener('keydown', (event) => {
       if (event.altKey && event.shiftKey && event.key.toLowerCase() === 'e') {
         event.preventDefault();
-        setOpen(!state.open);
+        if (state.picking) { finishPicking(); setOpen(true); } else { syncChatContext(); setOpen(!state.open); }
       }
     });
 
@@ -4538,7 +4726,7 @@
       repaintQueued = true;
       requestAnimationFrame(() => {
         repaintQueued = false;
-        if (!host.isConnected) { exclusionObserver.disconnect(); finishPicking(); clearImageQueue(); if (state.abortController) state.abortController.abort(); return; }
+        if (!host.isConnected) { exclusionObserver.disconnect(); if (colorQuery && colorQuery.removeEventListener) colorQuery.removeEventListener('change', onColorChange); finishPicking(); clearImageQueue(); if (state.abortController) state.abortController.abort(); return; }
         if (!syncChatContext()) paintExclusions();
       });
     });
@@ -4547,9 +4735,11 @@
       attributes: true, attributeFilter: ['data-id', 'data-testid'],
     });
     window.addEventListener('pagehide', () => { if (state.abortController) state.abortController.abort(); clearImageQueue(); });
+    applyTheme();
     refreshEndpointMode('start');
     refreshEndpointMode('end');
     refreshExclusions();
+    renderDashboard();
     host.__waRangeExporterState = state;
     return host;
   }
@@ -4629,6 +4819,8 @@
     getScrollState,
     createScrollProgressTracker,
     uiTemplate,
+    buildPanelSummary,
+    panelProgress,
     mountUI,
     bootstrap,
     sanitizedFilename,
