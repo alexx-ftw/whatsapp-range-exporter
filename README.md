@@ -2,13 +2,17 @@
 
 Userscript para **WhatsApp Web**: copiar y exportar rangos de mensajes y sus adjuntos, excluir mensajes concretos y copiar imágenes por separado mediante una cola manual de portapapeles.
 
-**Versión: 1.5.1.** El botón del exportador deja libre la esquina de los controles nativos de WhatsApp. Se conservan la interfaz, los temas, el auto-update y el motor de exportación.
+**Versión: 1.5.2.** Acceso de 44 px junto al margen derecho, colocado encima del control de WhatsApp en vez de desplazarse sobre los mensajes. Mantiene el auto-update y el motor de exportación.
+
+## Corrección 1.5.2
+
+El botón ya no se desplaza hacia el texto: vuelve al **margen derecho**, por encima del botón nativo. Su tamaño baja de 52 a **44 px**. Se conserva el atajo `Alt + Shift + E`, los temas y todo el motor de exportación. [Notas y límites de las pruebas](docs/README-v1.5.2.txt).
 
 ## Instalación y actualización
 
 **[Instalar / actualizar el userscript](https://github.com/alexx-ftw/whatsapp-range-exporter/raw/refs/heads/main/WhatsApp-Range-Exporter.user.js)**
 
-[ZIP v1.5.1](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.1/WhatsApp-Range-Exporter-v1.5.1.zip) · [TXT v1.5.1](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.1/WhatsApp-Range-Exporter-v1.5.1.txt) · [Release](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/tag/v1.5.1)
+[ZIP v1.5.2](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.2/WhatsApp-Range-Exporter-v1.5.2.zip) · [TXT v1.5.2](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.2/WhatsApp-Range-Exporter-v1.5.2.txt) · [Release](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/tag/v1.5.2)
 
 1. Con Tampermonkey o Violentmonkey instalado, abre el enlace de instalación y confirma la instalación o actualización en el gestor.
 2. Alternativa: descarga el ZIP y usa `WhatsApp-Range-Exporter.user.js`, o copia el TXT entero en el userscript existente, sustituyendo el código anterior.
@@ -59,7 +63,7 @@ npm test
 npm run check
 ```
 
-La revisión 1.5.1 supera 24 pruebas Node y la comprobación de posición e interacción en cinco tamaños de ventana en Camoufox (Firefox), con datos sintéticos. La versión 1.5.0 tuvo además 63 comprobaciones locales de interfaz en Chromium. No se ha validado esta revisión en la sesión real de WhatsApp ni se ha repetido la prueba de portapapeles. Consulta las notas de cada versión para su alcance.
+26 pruebas Node y verificación de interfaz en seis escenarios con Camoufox y datos sintéticos, incluidos clics y redimensionado. Los detalles están en [las notas de 1.5.2](docs/README-v1.5.2.txt). No se ha probado esta colocación en la sesión real del usuario.
 
 ## Uso
 
