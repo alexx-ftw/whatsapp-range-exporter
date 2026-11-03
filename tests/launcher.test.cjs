@@ -26,11 +26,11 @@ test('accessible name and keyboard alternative remain available', () => {
   assert.match(Core.uiTemplate(settings), /aria-label="Abrir exportador de WhatsApp, versión [^"]+"/);
   assert.match(source, /event\.altKey && event\.shiftKey && event\.key\.toLowerCase\(\) === 'e'/);
 });
-test('release changes only launcher layout and version compared with v1.5.1', () => {
+test('release changes only launcher visibility and version compared with v1.5.2', () => {
   const previous = source
-    .replace(`// @version      ${Core.VERSION}`, '// @version      1.5.1')
-    .replace(`const VERSION = '${Core.VERSION}';`, "const VERSION = '1.5.1';")
-    .replace(/\.toggle\{[^}]+\}/, '.toggle{position:fixed;right:calc(96px + env(safe-area-inset-right, 0px));bottom:88px;display:grid;place-items:center;width:52px;height:52px;padding:0;background:var(--accent);color:var(--surface);border:1px solid var(--accent-hover);border-radius:16px;box-shadow:var(--shadow);cursor:pointer;z-index:2147483647}');
+    .replace(`// @version      ${Core.VERSION}`, '// @version      1.5.2')
+    .replace(`const VERSION = '${Core.VERSION}';`, "const VERSION = '1.5.2';")
+    .replace(/\.toggle\{position:fixed;[\s\S]*?(?=\.panel\{position:fixed;)/, ".toggle{position:fixed;right:calc(20px + env(safe-area-inset-right, 0px));bottom:calc(164px + env(safe-area-inset-bottom, 0px));display:grid;place-items:center;width:44px;height:44px;padding:0;background:var(--accent);color:var(--surface);border:1px solid var(--accent-hover);border-radius:12px;box-shadow:var(--shadow);cursor:pointer;z-index:2147483647}\n.toggle:hover{background:var(--accent-hover)}:host([data-open=\"true\"]) .toggle{display:none}\n");
   assert.equal(crypto.createHash('sha256').update(previous).digest('hex'),
-    'c5e0258b59c1e136dbdca588faec84b38f4a3c666bf52935960b06512b101968');
+    '284db966e595360b559c53c3c2fb438e328fc3140db98e2d245aa5672c3add1d');
 });

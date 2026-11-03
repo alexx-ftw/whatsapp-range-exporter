@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Web - Copiar y exportar rango de mensajes
 // @namespace    eros.local.whatsapp
-// @version      1.5.2
+// @version      1.5.3
 // @description  Exporta rangos y adjuntos con exclusiones y controles por botones. Copia imágenes separadas en una cola manual, solo mediante el portapapeles.
 // @author       Eros
 // @match        https://web.whatsapp.com/*
@@ -38,7 +38,7 @@
 }(function createWhatsAppRangeExporter() {
   'use strict';
 
-  const VERSION = '1.5.2';
+  const VERSION = '1.5.3';
   const HOST_ID = 'wa-range-exporter-host';
   const GLOBAL_STYLE_ID = 'wa-range-exporter-page-style';
   const MESSAGE_SELECTOR = '[data-testid^="conv-msg-"], [data-testid="image-album"]';
@@ -3745,8 +3745,9 @@
 :host([data-theme="dark"]){--bg:#101c22;--surface:#18262d;--text:#e7eff2;--muted:#abbcc4;--border:#33464f;--soft:#22353e;--accent:#55d9af;--accent-hover:#79e5c4;--accent-soft:#173e34;--accent-text:#9cf0d2;--danger:#ffb3bc;--danger-soft:#45252e;--warning:#ffda91;--warning-soft:#3c3220;--focus:#7bc4ff;--shadow:0 16px 56px #0008;color-scheme:dark}
 *{box-sizing:border-box}button,input{font:inherit}button{touch-action:manipulation}button:disabled{opacity:.48;cursor:not-allowed}button:focus-visible,input:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--focus);outline-offset:3px}button, a{-webkit-tap-highlight-color:transparent}
 [hidden],.hidden{display:none!important}
-.toggle{position:fixed;right:calc(20px + env(safe-area-inset-right, 0px));bottom:calc(164px + env(safe-area-inset-bottom, 0px));display:grid;place-items:center;width:44px;height:44px;padding:0;background:var(--accent);color:var(--surface);border:1px solid var(--accent-hover);border-radius:12px;box-shadow:var(--shadow);cursor:pointer;z-index:2147483647}
-.toggle:hover{background:var(--accent-hover)}:host([data-open="true"]) .toggle{display:none}
+.toggle{position:fixed;right:calc(20px + env(safe-area-inset-right, 0px));bottom:calc(164px + env(safe-area-inset-bottom, 0px));display:grid;place-items:center;width:44px;height:44px;padding:0;background:var(--accent);color:var(--surface);border:1px solid var(--accent-hover);border-radius:12px;box-shadow:none;cursor:pointer;z-index:2147483647;opacity:.14;transition:opacity .14s ease}
+.toggle:hover,.toggle:focus-visible,.toggle:active{opacity:1;background:var(--accent-hover);box-shadow:var(--shadow)}:host([data-open="true"]) .toggle{display:none}
+@media(hover:none){.toggle{opacity:.5}}
 .panel{position:fixed;right:16px;bottom:16px;width:min(480px,calc(100vw - 32px));height:min(900px,calc(100vh - 32px));height:min(900px,calc(100dvh - 32px));display:flex;flex-direction:column;overflow:hidden;isolation:isolate;background:var(--bg);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);z-index:2147483647}
 .head{flex:none;display:flex;align-items:center;gap:10px;padding:17px 18px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
 .brand{flex:1;min-width:0}.brand-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.head h2{font-size:18px;font-weight:700;letter-spacing:-.4px;line-height:1.2;margin:0}.brand-caption{font-size:11px;color:var(--muted);margin:4px 0 0}

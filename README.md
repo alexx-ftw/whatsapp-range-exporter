@@ -2,7 +2,11 @@
 
 Userscript para **WhatsApp Web**: copiar y exportar rangos de mensajes y sus adjuntos, excluir mensajes concretos y copiar imágenes por separado mediante una cola manual de portapapeles.
 
-**Versión: 1.5.2.** Acceso de 44 px junto al margen derecho, colocado encima del control de WhatsApp en vez de desplazarse sobre los mensajes. Mantiene el auto-update y el motor de exportación.
+**Versión: 1.5.3.** Botón casi transparente en reposo y visible al pasar el ratón o enfocarlo con teclado. Mantiene posición, tamaño y auto-update.
+
+## Corrección 1.5.3
+
+El acceso queda al **14 % de opacidad**, sin sombra, y vuelve al **100 % al pasar el ratón, recibir foco de teclado o pulsarlo**. No se mueve ni cambia de tamaño. En pantallas sin hover, queda al 50 % para poder localizarlo. La transición respeta movimiento reducido. [Notas y límites de las pruebas](docs/README-v1.5.3.txt).
 
 ## Corrección 1.5.2
 
@@ -12,7 +16,7 @@ El botón ya no se desplaza hacia el texto: vuelve al **margen derecho**, por en
 
 **[Instalar / actualizar el userscript](https://github.com/alexx-ftw/whatsapp-range-exporter/raw/refs/heads/main/WhatsApp-Range-Exporter.user.js)**
 
-[ZIP v1.5.2](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.2/WhatsApp-Range-Exporter-v1.5.2.zip) · [TXT v1.5.2](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.2/WhatsApp-Range-Exporter-v1.5.2.txt) · [Release](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/tag/v1.5.2)
+[ZIP v1.5.3](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.3/WhatsApp-Range-Exporter-v1.5.3.zip) · [TXT v1.5.3](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.3/WhatsApp-Range-Exporter-v1.5.3.txt) · [Release](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/tag/v1.5.3)
 
 1. Con Tampermonkey o Violentmonkey instalado, abre el enlace de instalación y confirma la instalación o actualización en el gestor.
 2. Alternativa: descarga el ZIP y usa `WhatsApp-Range-Exporter.user.js`, o copia el TXT entero en el userscript existente, sustituyendo el código anterior.
@@ -63,7 +67,7 @@ npm test
 npm run check
 ```
 
-26 pruebas Node y verificación de interfaz en seis escenarios con Camoufox y datos sintéticos, incluidos clics y redimensionado. Los detalles están en [las notas de 1.5.2](docs/README-v1.5.2.txt). No se ha probado esta colocación en la sesión real del usuario.
+31 pruebas Node y cinco escenarios de interfaz en Camoufox/Firefox para v1.5.3: reposo, hover, teclado, pulsación, clics, temas, movimiento reducido y emulación táctil. Datos ficticios; no se ha probado en una sesión real de WhatsApp ni en el gestor de userscripts del usuario. [Detalles](docs/README-v1.5.3.txt).
 
 ## Uso
 

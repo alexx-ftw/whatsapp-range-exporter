@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-range-exporter",
-  "version": "1.5.2",
+  "version": "1.5.3",
   "private": true,
   "description": "WhatsApp Range Exporter userscript and UI regression tests",
   "scripts": {
