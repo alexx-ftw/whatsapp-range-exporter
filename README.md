@@ -2,13 +2,13 @@
 
 Userscript para **WhatsApp Web**: copiar y exportar rangos de mensajes y sus adjuntos, excluir mensajes concretos y copiar imágenes por separado mediante una cola manual de portapapeles.
 
-**Versión: 1.5.0.** Interfaz renovada con versión instalada visible, acciones fijas, temas claro/oscuro y estados de resultados. Mantiene el auto-update y el motor de exportación anterior.
+**Versión: 1.5.1.** El botón del exportador deja libre la esquina de los controles nativos de WhatsApp. Se conservan la interfaz, los temas, el auto-update y el motor de exportación.
 
 ## Instalación y actualización
 
 **[Instalar / actualizar el userscript](https://github.com/alexx-ftw/whatsapp-range-exporter/raw/refs/heads/main/WhatsApp-Range-Exporter.user.js)**
 
-[ZIP v1.5.0](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.0/WhatsApp-Range-Exporter-v1.5.0.zip) · [TXT v1.5.0](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.0/WhatsApp-Range-Exporter-v1.5.0.txt) · [Release](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/tag/v1.5.0)
+[ZIP v1.5.1](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.1/WhatsApp-Range-Exporter-v1.5.1.zip) · [TXT v1.5.1](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/download/v1.5.1/WhatsApp-Range-Exporter-v1.5.1.txt) · [Release](https://github.com/alexx-ftw/whatsapp-range-exporter/releases/tag/v1.5.1)
 
 1. Con Tampermonkey o Violentmonkey instalado, abre el enlace de instalación y confirma la instalación o actualización en el gestor.
 2. Alternativa: descarga el ZIP y usa `WhatsApp-Range-Exporter.user.js`, o copia el TXT entero en el userscript existente, sustituyendo el código anterior.
@@ -29,6 +29,14 @@ Las próximas versiones deben publicar el archivo de `main` y aumentar tanto `@v
 Se conservan `@name` y `@namespace` para mantener la identidad del script. La publicación mantiene los permisos y dependencias anteriores. No se ha probado una actualización automática real en el navegador del usuario.
 
 [Notas de 1.4.3](docs/README-v1.4.3.txt) · [Metadatos de Tampermonkey](https://www.tampermonkey.net/documentation.php#meta:updateURL) · [Metadatos de Violentmonkey](https://violentmonkey.github.io/api/metadata-block/)
+
+## Corrección 1.5.1
+
+El lanzador queda a la izquierda del botón nativo de WhatsApp, sin cubrirlo.
+La posición se conserva también en ventanas estrechas. No se añaden procesos
+ni dependencias y no cambia la lógica de exportación.
+
+[Detalles y comprobaciones de 1.5.1](docs/README-v1.5.1.txt)
 
 ## Interfaz 1.5.0
 
@@ -51,7 +59,7 @@ npm test
 npm run check
 ```
 
-20 pruebas Node y 63 comprobaciones locales de interfaz en Chromium. WA-JS, almacenamiento y portapapeles simulados; decodificación PNG real. No se ha validado el pegado nativo en ChatGPT Desktop/Codex ni la sesión real de WhatsApp. Las pruebas de navegador se detallan en las notas de la versión.
+La revisión 1.5.1 supera 24 pruebas Node y la comprobación de posición e interacción en cinco tamaños de ventana en Camoufox (Firefox), con datos sintéticos. La versión 1.5.0 tuvo además 63 comprobaciones locales de interfaz en Chromium. No se ha validado esta revisión en la sesión real de WhatsApp ni se ha repetido la prueba de portapapeles. Consulta las notas de cada versión para su alcance.
 
 ## Uso
 

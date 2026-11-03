@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WhatsApp Web - Copiar y exportar rango de mensajes
 // @namespace    eros.local.whatsapp
-// @version      1.5.0
+// @version      1.5.1
 // @description  Exporta rangos y adjuntos con exclusiones y controles por botones. Copia imágenes separadas en una cola manual, solo mediante el portapapeles.
 // @author       Eros
 // @match        https://web.whatsapp.com/*
@@ -38,7 +38,7 @@
 }(function createWhatsAppRangeExporter() {
   'use strict';
 
-  const VERSION = '1.5.0';
+  const VERSION = '1.5.1';
   const HOST_ID = 'wa-range-exporter-host';
   const GLOBAL_STYLE_ID = 'wa-range-exporter-page-style';
   const MESSAGE_SELECTOR = '[data-testid^="conv-msg-"], [data-testid="image-album"]';
@@ -3745,7 +3745,7 @@
 :host([data-theme="dark"]){--bg:#101c22;--surface:#18262d;--text:#e7eff2;--muted:#abbcc4;--border:#33464f;--soft:#22353e;--accent:#55d9af;--accent-hover:#79e5c4;--accent-soft:#173e34;--accent-text:#9cf0d2;--danger:#ffb3bc;--danger-soft:#45252e;--warning:#ffda91;--warning-soft:#3c3220;--focus:#7bc4ff;--shadow:0 16px 56px #0008;color-scheme:dark}
 *{box-sizing:border-box}button,input{font:inherit}button{touch-action:manipulation}button:disabled{opacity:.48;cursor:not-allowed}button:focus-visible,input:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--focus);outline-offset:3px}button, a{-webkit-tap-highlight-color:transparent}
 [hidden],.hidden{display:none!important}
-.toggle{position:fixed;right:20px;bottom:88px;display:grid;place-items:center;width:52px;height:52px;padding:0;background:var(--accent);color:var(--surface);border:1px solid var(--accent-hover);border-radius:16px;box-shadow:var(--shadow);cursor:pointer;z-index:2147483647}
+.toggle{position:fixed;right:calc(96px + env(safe-area-inset-right, 0px));bottom:88px;display:grid;place-items:center;width:52px;height:52px;padding:0;background:var(--accent);color:var(--surface);border:1px solid var(--accent-hover);border-radius:16px;box-shadow:var(--shadow);cursor:pointer;z-index:2147483647}
 .toggle:hover{background:var(--accent-hover)}:host([data-open="true"]) .toggle{display:none}
 .panel{position:fixed;right:16px;bottom:16px;width:min(480px,calc(100vw - 32px));height:min(900px,calc(100vh - 32px));height:min(900px,calc(100dvh - 32px));display:flex;flex-direction:column;overflow:hidden;isolation:isolate;background:var(--bg);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow);z-index:2147483647}
 .head{flex:none;display:flex;align-items:center;gap:10px;padding:17px 18px 14px;background:var(--surface);border-bottom:1px solid var(--border)}
@@ -3773,7 +3773,7 @@
 .image-issues-toggle::before{content:'+';display:inline-block;width:16px;font-weight:700}.image-issues-toggle[aria-expanded="true"]::before{content:'−'}
 .privacy{font-size:11px;line-height:1.5;color:var(--muted);margin:16px 0 0}.shortcut{font-family:ui-monospace,monospace;font-size:10px;color:var(--muted)}
 .pick-tray{position:fixed;right:16px;bottom:90px;width:min(440px,calc(100vw - 32px));padding:13px;background:var(--surface);color:var(--text);border:2px solid var(--danger);border-radius:12px;box-shadow:var(--shadow);z-index:2147483647;font-size:12px}.pick-tray p{margin:0 0 9px;line-height:1.5}.pick-tray button{width:100%}
-@media(max-width:520px){.panel{right:8px;bottom:8px;width:calc(100vw - 16px);height:calc(100vh - 16px);height:calc(100dvh - 16px);border-radius:14px}.head{padding:13px 14px}.head h2{font-size:17px}.body{padding:13px 13px 18px}.action-bar{padding:10px 14px 12px}.choice{padding:8px 5px}.action-help{max-height:48px}.image-preview{height:200px}.toggle{right:16px}.pick-tray{right:8px;width:calc(100vw - 16px)}}
+@media(max-width:520px){.panel{right:8px;bottom:8px;width:calc(100vw - 16px);height:calc(100vh - 16px);height:calc(100dvh - 16px);border-radius:14px}.head{padding:13px 14px}.head h2{font-size:17px}.body{padding:13px 13px 18px}.action-bar{padding:10px 14px 12px}.choice{padding:8px 5px}.action-help{max-height:48px}.image-preview{height:200px}.pick-tray{right:8px;width:calc(100vw - 16px)}}
 @media(max-width:340px){.choice-group.kind{grid-template-columns:repeat(2,minmax(0,1fr))}.choice-group.kind .choice:last-child{grid-column:1/-1}.head{gap:6px}.head h2{font-size:16px}.brand-caption{font-size:10px}.result-stats dd{font-size:19px}}
 @media(max-height:560px){.head{padding-top:9px;padding-bottom:9px}.brand-caption{display:none}.action-bar{padding-top:8px;padding-bottom:8px}.status{max-height:38px}.action-help{max-height:32px}.action-bar .actions button{min-height:34px;padding:6px 8px}.status-line{margin-bottom:3px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.progress:not([data-determinate="true"])>span{width:100%;opacity:.55}}
